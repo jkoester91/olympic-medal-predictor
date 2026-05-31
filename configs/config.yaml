@@ -1,0 +1,30 @@
+data:
+  raw_athlete_path: "data/athlete_events.csv"
+  raw_noc_path: "data/noc_regions.csv"
+  test_size: 0.2
+  random_state: 42
+
+features:
+  numerical: ["Age", "Height", "Weight"]
+  categorical: ["Sex", "Season"]
+  target: "Medal_Won"
+
+training:
+  # Configuration 1: Baseline Random Forest
+  rf:
+    n_estimators: 100
+    max_depth: 6
+    random_state: 42
+  
+  # Configuration 2: Deeper Random Forest
+  rf_deep:
+    n_estimators: 150
+    max_depth: 12
+    random_state: 42
+
+  # Configuration 3: Simple Gradient Boosting Alternative
+  gb:
+    n_estimators: 100
+    learning_rate: 0.1
+    max_depth: 4
+    random_state: 42

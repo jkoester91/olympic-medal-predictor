@@ -1,0 +1,16 @@
+# Data and models
+data/*.csv
+data/*.pkl
+models/
+
+# MLflow tracking local directories
+mlruns/
+mlflow.db
+
+# Environment variables
+.env
+
+# Python caching
+__pycache__/
+*.pyc
+.pytest_cache/
