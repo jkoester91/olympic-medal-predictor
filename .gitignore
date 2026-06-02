@@ -1,16 +1,20 @@
-# Data and models
-data/*.csv
-data/*.pkl
-models/
-
-# MLflow tracking local directories
-mlruns/
-mlflow.db
-
-# Environment variables
+# Sensitive keys
 .env
 
-# Python caching
+# MLflow and Local Directories
+mlruns/
+mlflow.db
+data/
+*.csv
+
+# Python and System files
 __pycache__/
 *.pyc
 .pytest_cache/
+.DS_Store
+.venv/
+venv/
+env/
+
+# DVC (Keep these!)
+# Do NOT ignore *.dvc files, just the actual data directories/files they point to.

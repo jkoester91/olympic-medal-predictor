@@ -4,27 +4,35 @@ data:
   test_size: 0.2
   random_state: 42
 
-features:
-  numerical: ["Age", "Height", "Weight"]
-  categorical: ["Sex", "Season"]
-  target: "Medal_Won"
-
 training:
-  # Configuration 1: Baseline Random Forest
-  rf:
-    n_estimators: 100
-    max_depth: 6
+  # 1. Baseline Random Forest
+  baseline_rf:
+    n_estimators: 50
+    max_depth: 10
     random_state: 42
   
-  # Configuration 2: Deeper Random Forest
-  rf_deep:
-    n_estimators: 150
+  # 2. Deeper Random Forest
+  deep_rf:
+    n_estimators: 100
+    max_depth: 20
+    random_state: 42
+
+  # 3. Wider Random Forest
+  wide_rf:
+    n_estimators: 200
     max_depth: 12
     random_state: 42
 
-  # Configuration 3: Simple Gradient Boosting Alternative
-  gb:
-    n_estimators: 100
+  # 4. Standard Gradient Boosting
+  gradient_boost:
+    n_estimators: 50
     learning_rate: 0.1
-    max_depth: 4
+    max_depth: 3
+    random_state: 42
+
+  # 5. Aggressive Gradient Boosting
+  fast_gb:
+    n_estimators: 100
+    learning_rate: 0.2
+    max_depth: 5
     random_state: 42
