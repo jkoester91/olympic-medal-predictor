@@ -1,67 +1,63 @@
 import os
+os.environ["MLFLOW_ALLOW_FILE_STORE"] = "true"
 import yaml
+import pathlib
 import mlflow
+import numpy as np
 from mlflow.tracking import MlflowClient
 from sklearn.metrics import classification_report, confusion_matrix
 from preprocess import preprocess_pipeline
 
-def get_best_run_model_uri(mlruns_dir="mlruns"):
-    """
-    Uses the native MLflow Client to query local tracking logs and 
-    programmatically return the URI of the best training run sorted by ROC-AUC.
-    """
-    mlflow.set_tracking_uri(f"file:{os.path.abspath(mlruns_dir)}")
+def get_best_model_uri():
     client = MlflowClient()
+    experiment = client.get_experiment_by_name("Olympic_Medal_Prediction")
     
-    experiments = client.search_experiments()
-    if not experiments:
-        raise FileNotFoundError(f"No MLflow experiments found in '{mlruns_dir}'.")
+    # Guard against experiment not existing
+    if experiment is None:
+        raise ValueError("Experiment 'Olympic_Medal_Prediction' not found. Have you run train.py?")
         
-    # Programmatically filter and sort by performance metrics
-    all_runs = client.search_runs(
-        experiment_ids=[exp.experiment_id for exp in experiments],
-        order_by=["metrics.roc_auc DESC"],
+    runs = client.search_runs(
+        experiment_ids=[experiment.experiment_id], 
+        order_by=["metrics.roc_auc DESC"], 
         max_results=1
     )
+    if not runs: 
+        raise FileNotFoundError("No runs found in experiment.")
+    return f"runs:/{runs[0].info.run_id}/model"
+
+def run_evaluation():
+    # 1. Configure the environment globally FIRST
+    tracking_uri = pathlib.Path(os.path.abspath("mlruns")).as_uri()
+    mlflow.set_tracking_uri(tracking_uri)
     
-    if not all_runs:
-        raise FileNotFoundError("No training runs found inside the experiment folders.")
-        
-    best_run_id = all_runs[0].info.run_id
-    return f"runs:/{best_run_id}/model"
-
-def run_standalone_evaluation():
-    with open("configs/config.yaml", "r") as f:
+    with open("configs/config.yaml", "r") as f: 
         config = yaml.safe_load(f)
-
-    print("Re-generating test split from preprocessing pipeline...")
-    _, X_test, _, y_test = preprocess_pipeline(
+    
+    # 2. Preprocess and copy to ensure clean memory
+    _, X_test_raw, _, y_test = preprocess_pipeline(
         athlete_path=config["data"]["raw_athlete_path"],
         noc_path=config["data"]["raw_noc_path"],
         test_size=config["data"]["test_size"],
         random_state=config["data"]["random_state"]
     )
+    # Ensure memory safety with .copy()
+    X_test = X_test_raw[['Age', 'Height', 'Weight']].copy()
 
-    try:
-        model_uri = get_best_run_model_uri()
-        print(f"Loading best tracked model artifact via native URI: {model_uri}")
-        model = mlflow.pyfunc.load_model(model_uri)
-    except Exception as e:
-        print(f"\nError fetching model: {e}")
-        return
-
-    print("Executing final model evaluations on test partition...")
-    y_pred = model.predict(X_test)
+    # 3. Load & Predict
+    model_uri = get_best_model_uri()
+    model = mlflow.sklearn.load_model(model_uri)
+    probs = model.predict_proba(X_test)[:, 1]
     
+    # Apply custom threshold
+    threshold = 0.55
+    y_pred = (probs >= threshold).astype(int)
+    
+    # 4. Report
     print("\n" + "="*50)
-    print("             FINAL MODEL PERFORMANCE REPORT             ")
+    print("FINAL MODEL PERFORMANCE REPORT")
     print("="*50)
-    print("\nConfusion Matrix:")
-    print(confusion_matrix(y_test, y_pred))
-    
-    print("\nDetailed Classification Report:")
-    print(classification_report(y_test, y_pred, target_names=["No Medal", "Medal Won"], zero_division=0))
-    print("="*50)
+    print("\nConfusion Matrix:\n", confusion_matrix(y_test, y_pred))
+    print("\nReport:\n", classification_report(y_test, y_pred, target_names=["No Medal", "Medal Won"]))
 
 if __name__ == "__main__":
-    run_standalone_evaluation()
+    run_evaluation()
