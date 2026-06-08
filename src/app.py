@@ -1,18 +1,32 @@
+import os
+os.environ["MLFLOW_ALLOW_FILE_STORE"] = "true"
+from pathlib import Path
+from dotenv import load_dotenv
+
+# 1. Load Environment Variables
+load_dotenv()
+
+# 2. Define the project-root absolute path
+BASE_DIR = Path(__file__).resolve().parent.parent
+MLRUNS_PATH = BASE_DIR / "mlruns"
+
+# 3. Configure MLflow (Global setting)
+import mlflow
 import streamlit as st
 import pandas as pd
 import numpy as np
 import mlflow.sklearn
 from mlflow.tracking import MlflowClient
-import os
 import json
 from openai import OpenAI
 from datetime import datetime
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.compose import ColumnTransformer
 
-# ==========================================
-# 1. SETUP & CONFIGURATION
-# ==========================================
-mlflow.set_tracking_uri("./mlruns")
+# Set the tracking URI ONCE
+mlflow.set_tracking_uri(MLRUNS_PATH.as_uri())
 
+# 4. Configuration and Setup
 api_key = os.environ.get("NEBIUS_API_KEY") 
 if not api_key:
     st.error("🚨 NEBIUS_API_KEY is missing! Please make sure it is set in your .env file.")
@@ -35,9 +49,12 @@ def load_tracked_model(model_tag_name):
             
         runs = client.search_runs(
             experiment_ids=[experiment.experiment_id],
-            filter_string=f"tags.mlflow.runName = '{model_tag_name}'",
+            filter_string=f"run_name = '{model_tag_name}'",
             order_by=["metrics.f1 DESC"]
         )
+        print(f"DEBUG: Search URI: {mlflow.get_tracking_uri()}")
+        print(f"DEBUG: Experiment ID: {experiment.experiment_id}")
+        print(f"DEBUG: Runs found: {len(runs)}")
         if not runs:
             return None, None
             
@@ -46,6 +63,8 @@ def load_tracked_model(model_tag_name):
         model_uri = f"runs:/{best_run_id}/model"
         return mlflow.sklearn.load_model(model_uri), best_run_id
     except Exception as e:
+        print(f"DEBUG: Tracking URI is {mlflow.get_tracking_uri()}")
+        print(f"DEBUG: Looking for experiment: {experiment.experiment_id}")
         return None, None
 
 def log_inference_data(age, height, weight, sport, model_used, prediction, probability):
@@ -214,7 +233,8 @@ if user_input := st.chat_input("Type your profile here..."):
                 input_data = pd.DataFrame({
                     "Age": [int(parsed_data["age"])],
                     "Height": [int(parsed_data["height"])],
-                    "Weight": [int(parsed_data["weight"])]
+                    "Weight": [int(parsed_data["weight"])],
+                    "Sport": [sport]
                 })
                 
                 # Fetch baseline probability from RF
